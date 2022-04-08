@@ -176,7 +176,7 @@ class QiskitSimulation:
 
         sorting_idxs   = np.flip(np.argsort(initial_counts)) # Flipping for sorting biggest,...,smallest
         initial_states = initial_states[sorting_idxs]
-
+        print(initial_states[:4])
         print("#"*53)
         if idx == 0: string = f"#### Most probale state according to simulation ####"
         else: string = f"#### {idx}'th most probale state according to simulation ####"
@@ -197,9 +197,12 @@ class QiskitSimulation:
 
         ## Sorting
         initial_counts = np.array([count/np.sum(initial_counts) for count in initial_counts])
-        nr_ones = [np.sum(self.string_to_arr(initial_states[i]).flatten()) for i in range(len(initial_states))]
-        sorted_states = initial_states[np.argsort(nr_ones)]
-        sorted_counts = initial_counts[np.argsort(nr_ones)]
+        #nr_ones = [np.sum(self.string_to_arr(initial_states[i]).flatten()) for i in range(len(initial_states))]
+        #sort_idx = np.argsort(nr_ones)                  ## Sorting after number of ones in states : low  -> high
+        sort_idx = np.flip(np.argsort(initial_counts))  ## Sorting after occurrence               : high -> low
+
+        sorted_states = initial_states[sort_idx]
+        sorted_counts = initial_counts[sort_idx]
 
         if top_number < len(sorted_counts):
             sorted_states = sorted_states[:top_number]

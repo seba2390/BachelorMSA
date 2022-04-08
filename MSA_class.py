@@ -117,13 +117,13 @@ class MultipleSequenceAlignment:
         for i in range(len(bit_string)//self.initial_MSA.shape[1]):
             if np.sum(bit_string[i*self.initial_MSA.shape[1]:(i+1)*self.initial_MSA.shape[1]]) > 1:
 
-                message += f"** {i+1}'th letter placed in more than one column. \n"
+                #message += f"** {i+1}'th letter placed in more than one column. \n"
                 print_message = True
             if np.sum(bit_string[i*self.initial_MSA.shape[1]:(i+1)*self.initial_MSA.shape[1]]) == 0:
-                message += f"** {i+1}'th letter not placed in any column. \n"
+                #message += f"** {i+1}'th letter not placed in any column. \n"
                 print_message = True
         if np.sum(bit_string) != len(letters_in_mat): 
-            message += "** Number of ones doesn't correspond to number of letters."
+            #message += "** Number of ones doesn't correspond to number of letters."
             print_message = True
         if print_message: print(message); print("(Returning 2D zero array)")
 
