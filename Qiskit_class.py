@@ -177,14 +177,19 @@ class QiskitSimulation:
         sorting_idxs   = np.flip(np.argsort(initial_counts)) # Flipping for sorting biggest,...,smallest
         initial_states = initial_states[sorting_idxs]
 
-        string = f"#### {idx}'th most probale state according to simulation ####"
+        print("#"*53)
+        if idx == 0: string = f"#### Most probale state according to simulation ####"
+        else: string = f"#### {idx}'th most probale state according to simulation ####"
         print(string)
-        print(initial_states[idx])
+        lines = "-"*int((len(string)-len(initial_states[idx]))/2-1)
+        print(lines+"|"+initial_states[idx]+"|"+lines)
+        print("#"*len(string))
         print(f"with corresponding MSA:")
         print(self.initial_MSA.bit_state_2_matrix(self.string_to_arr(initial_states[idx]).flatten()))
         print("#"*len(string))
+
     
-    def plot_count_histogram(self, counts, solutions):
+    def plot_count_histogram(self, counts, solutions, top_number = 55):
         
         ## Getting values 
         initial_states = np.array(list(counts.keys()))
@@ -195,6 +200,11 @@ class QiskitSimulation:
         nr_ones = [np.sum(self.string_to_arr(initial_states[i]).flatten()) for i in range(len(initial_states))]
         sorted_states = initial_states[np.argsort(nr_ones)]
         sorted_counts = initial_counts[np.argsort(nr_ones)]
+
+        if top_number < len(sorted_counts):
+            sorted_states = sorted_states[:top_number]
+            sorted_counts = sorted_counts[:top_number]
+
 
         ## Setting idx for states if present in solutions
         good_indexes = []
@@ -213,7 +223,8 @@ class QiskitSimulation:
         x_labels = [r"$|$"+state+r"$\rangle$" for state in sorted_states]
         ax.set_xticks(xs)
         ax.set_xticklabels(x_labels, rotation = 90,size=15)
-        bar = ax.bar(sorted_states,sorted_counts,color=["tab:red" if i in good_indexes else "tab:blue" for i in range(len(xs))],label="Blue is invalid solutions")
+        ax.set_title(f"{len(sorted_counts)} most probable states",size=23)
+        bar = ax.bar(sorted_states,sorted_counts,align = "center",color=["tab:red" if i in good_indexes else "tab:blue" for i in range(len(xs))],label="Blue is invalid solutions")
 
         for idx, rect in enumerate(bar):
             height = rect.get_height()

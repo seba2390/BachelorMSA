@@ -111,10 +111,12 @@ class MultipleSequenceAlignment:
         letters_in_mat = [self.initial_MSA[i][j] for i in range(self.initial_MSA.shape[0]) 
                         for j in range(self.initial_MSA.shape[1]) if self.initial_MSA[i][j] != "_"]
 
+        
         print_message = False
-        message = " --- Invalid state --- \n "
+        message = " --- Invalid state --- "
         for i in range(len(bit_string)//self.initial_MSA.shape[1]):
             if np.sum(bit_string[i*self.initial_MSA.shape[1]:(i+1)*self.initial_MSA.shape[1]]) > 1:
+
                 message += f"** {i+1}'th letter placed in more than one column. \n"
                 print_message = True
             if np.sum(bit_string[i*self.initial_MSA.shape[1]:(i+1)*self.initial_MSA.shape[1]]) == 0:
@@ -123,7 +125,7 @@ class MultipleSequenceAlignment:
         if np.sum(bit_string) != len(letters_in_mat): 
             message += "** Number of ones doesn't correspond to number of letters."
             print_message = True
-        if print_message: print(message); print("Returning 2D zero array")
+        if print_message: print(message); print("(Returning 2D zero array)")
 
         new_mat = np.zeros((self.initial_MSA.shape),dtype=object)
         if print_message == False:
