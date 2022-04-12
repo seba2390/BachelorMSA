@@ -17,13 +17,13 @@ plt.rc("xtick", top=True, direction="in")
 plt.rc("ytick", right=True, direction="in")
 
 class QiskitSimulation:
-    def __init__(self, initial_MSA, theta_0, backend_name="aer simulator", normalize_weights=True, shots = 512):
+    def __init__(self, initial_MSA, theta_0, backend_name="aer simulator", shots = 512):
 
         self.initial_MSA     = initial_MSA
         self.current_theta   = theta_0
         self.shots           = shots
         self.current_backend = self.get_Aer_backend(backend_name)
-        self.current_circuit = self.set_current_circuit(self.initial_MSA,self.current_theta,normalize_weights)
+        self.current_circuit = self.set_current_circuit(self.initial_MSA,self.current_theta)
         self.current_counts  = None
 
     def compute_Q_edges(self, Q: np.ndarray) -> np.ndarray:
@@ -70,7 +70,7 @@ class QiskitSimulation:
         for backend in Aer.backends():
             print(backend.name())
 
-    def set_current_circuit(self, my_MSA, theta, normalize_weights=True):
+    def set_current_circuit(self, my_MSA, theta):
         """
         Creates a parametrized qaoa circuit
 
@@ -87,31 +87,37 @@ class QiskitSimulation:
         
         p1, p2, p3 = my_MSA.penalties[0],  my_MSA.penalties[1],  my_MSA.penalties[2]
 
+        """
         Q, h, d    = my_MSA.QUBO_model[0], my_MSA.QUBO_model[1], my_MSA.QUBO_model[2]
 
-        if normalize_weights:
-            Q *= 1./np.max(np.array([np.max(Q),np.max(h)]))
-            h *= 1./np.max(np.array([np.max(Q),np.max(h)]))
+        """
+        J, g, c = my_MSA.Ising_model[0], my_MSA.Ising_model[1], my_MSA.Ising_model[2]
 
-        edges = self.compute_Q_edges(Q)
 
+
+        
         # Initial_state: Hadamark gate on each qbit
         for i in range(0, nqubits):
             qc.h(i)
         
-        # Cost unitary:
-        for irep in range(0, p):        
+        
+        edges = self.compute_Q_edges(J)
+        for irep in range(0, p):
+
+            # Cost unitary:        
             for i, j, w_ij in edges:
                 if i!= j:
                     qc.rzz(2 * gamma[irep] * w_ij , i , j)
                 else:
-                    qc.rz(2 * gamma[irep] * w_ij      , i) # Diagonal in Q matrix
-                    qc.rz(2 * gamma[irep] * h[i] * p1 , i) # Elements of h vector
+                    qc.rz(2 * gamma[irep] * w_ij, i) # Diagonal in Q matrix
+            for i, g_i in enumerate(g):
+                qc.rz(2 * gamma[irep] * g_i, i)      # Elements of h vector
 
-        # Mixer unitary: X rotation on each qbit      
-        for irep in range(0, p): 
+            # Mixer unitary: X rotation on each qbit     
             for i in range(0, nqubits):
-                qc.rx(1 * beta[irep], i)
+                qc.rx(2 * beta[irep], i)
+
+
                 
         qc.measure_all()        
         return qc
@@ -133,22 +139,25 @@ class QiskitSimulation:
         for str in string: arr.append(int(str))
         return np.array(arr).reshape((len(np.array(arr)),1))
 
-    def compute_expectation(self, my_MSA: np.ndarray, counts, normalize_weights = True) -> float:
+    def compute_expectation(self, my_MSA: np.ndarray, counts) -> float:
         
         """
         Computes expectation value based on measurement results
 
         """
-        Q, h, d = my_MSA.QUBO_model[0], my_MSA.QUBO_model[1], my_MSA.QUBO_model[2]
 
-        if normalize_weights:
-            Q *= 1./np.max(np.array([np.max(Q),np.max(h)]))
-            h *= 1./np.max(np.array([np.max(Q),np.max(h)]))
+
+        
+       #Q, h, d    = my_MSA.QUBO_model[0], my_MSA.QUBO_model[1], my_MSA.QUBO_model[2]
+        
+        J, g, c    = my_MSA.Ising_model[0], my_MSA.Ising_model[1], my_MSA.Ising_model[2]
+
 
         sum_count, avg = 0, 0
         for bitstring, count in counts.items():
             state = self.string_to_arr(bitstring)
-            score = ((state.T @ (Q @ state)) + (h.T @ state) + d)[0][0]
+            #score = ((state.T @ (J @ state)) + (g.T @ state) + c)[0][0]
+            score = ((state.T @ (J @ state)) + (g.T @ state))[0][0]
             avg  += score * count
             sum_count += count
         return avg/sum_count
@@ -176,7 +185,6 @@ class QiskitSimulation:
 
         sorting_idxs   = np.flip(np.argsort(initial_counts)) # Flipping for sorting biggest,...,smallest
         initial_states = initial_states[sorting_idxs]
-        print(initial_states[:4])
         print("#"*53)
         if idx == 0: string = f"#### Most probale state according to simulation ####"
         else: string = f"#### {idx}'th most probale state according to simulation ####"

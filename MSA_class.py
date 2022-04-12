@@ -3,7 +3,7 @@ from itertools import permutations
 from copy import deepcopy
 
 class MultipleSequenceAlignment:
-    def __init__(self, strings: np.ndarray, penalties = [1,1,1], alphabet = ["A","C","T","G"]):
+    def __init__(self, strings: np.ndarray, penalties = [1,1,1], alphabet = ["A","C","T","G"], normalize_weights = False):
 
         self.alphabet           = alphabet
 
@@ -14,13 +14,16 @@ class MultipleSequenceAlignment:
         assert type(strings) is np.ndarray, f'Strings given as {type(strings)}, but should be {np.ndarray}'
         assert len(strings) > 1,            f'Only 1 string of letters given - should contain at least 2!'
         assert type(penalties) is list or type(penalties) is np.ndarray, f'Penalties given as {type(penalties)}, but should be {np.ndarray} or {list}'
+        assert type(normalize_weights) is bool, f'normalize_weights given as {type(normalize_weights)}, but should be {type(normalize_weights)}'
         
-        self.strings            = strings
-        self.penalties          = penalties
-        self.initial_MSA        = self.MSA_matrix(self.strings)
-        self.initial_bitstring  = self.matrix_2_bit_state(self.initial_MSA,self.initial_MSA)
-        self.score_weights      = self.encode_score_weights()
-        self.QUBO_model         = self.encode_QUBO() ## self.QUBO_model is given as (Q,h,d)
+        self.strings             = strings
+        self.penalties           = penalties
+        self.initial_MSA         = self.MSA_matrix(self.strings)
+        self.initial_bitstring   = self.matrix_2_bit_state(self.initial_MSA,self.initial_MSA) ## state in { 0 , 1}^n
+        self.initial_isingstring = 1 - 2 * self.initial_bitstring                             ## state in {-1 , 1}^n
+        self.score_weights       = self.encode_score_weights()
+        self.QUBO_model          = self.encode_QUBO(normalize_weights)  ## self.QUBO_model is given as (Q,h,d)
+        self.Ising_model         = self.encode_Ising(normalize_weights) ## self.isng_model is given as (J,g,c)
 
     def MSA_matrix(self, init_strings: np.ndarray) -> np.ndarray:
         """ Creating a matrix representation of the strings given
@@ -242,7 +245,7 @@ class MultipleSequenceAlignment:
 
         if   n1 == gap or n2 == gap: score =  0; return score
         elif n1 == n2              : score = -1; return score
-        elif n1 != n2              : score =  1; return score
+        elif n1 != n2              : score =  2; return score
 
     def encode_score_weights(self):
         """
@@ -263,7 +266,7 @@ class MultipleSequenceAlignment:
                         weight_matrices[row1+row2-1][idx1][idx2] = self.score(n1,n2)
         return np.vstack(np.array(weight_matrices))
 
-    def encode_QUBO(self):
+    def encode_QUBO(self,normalize_weights):
         """ Function for encoding cost function into x^TQx+h^T+d form
         
         Returns:
@@ -292,7 +295,7 @@ class MultipleSequenceAlignment:
                             xsni1_idx = self.index_state(nr_cols, n1, s1, i, nr_letters)
                             xsni2_idx = self.index_state(nr_cols, n2, s2, i, nr_letters)
                             row , col = self.index_weight(s1, n1, s2, n2, nr_cols)
-                            Q[xsni1_idx][xsni2_idx] = self.score_weights[row][col]
+                            Q[xsni1_idx][xsni2_idx] += self.score_weights[row][col]
 
         ## Remaing part of squared terms in one col pr. letter
         for s in range(1 , nr_rows + 1):
@@ -301,7 +304,7 @@ class MultipleSequenceAlignment:
                     for j in range(i + 1, nr_cols + 1):
                         xsni1_idx = self.index_state(nr_cols, n, s, i, nr_letters)
                         xsni2_idx = self.index_state(nr_cols, n, s, j, nr_letters)
-                        Q[xsni2_idx][xsni1_idx] = 2 * p1
+                        Q[xsni1_idx][xsni2_idx] += 2 * p1
 
         ## One letter pr. ith col terms
         for s in range(1 , nr_rows + 1):
@@ -310,7 +313,7 @@ class MultipleSequenceAlignment:
                     for n2 in range(n1 + 1 , nr_letters[s] + 1):
                         xsni1_idx = self.index_state(nr_cols, n1, s, i, nr_letters)
                         xsni2_idx = self.index_state(nr_cols, n2, s, i, nr_letters)
-                        Q[xsni1_idx][xsni2_idx] = 1 * p2
+                        Q[xsni1_idx][xsni2_idx] += 1 * p2
         
         ## Ordering term
         for s in range(1 , nr_rows + 1):
@@ -320,5 +323,40 @@ class MultipleSequenceAlignment:
                         for i2 in range(i1 + 1 , nr_cols + 1):
                             xsni1_idx = self.index_state(nr_cols, n1, s, i2, nr_letters)
                             xsni2_idx = self.index_state(nr_cols, n2, s, i1, nr_letters)
-                            Q[xsni1_idx][xsni2_idx] = 1 * p3
+                            Q[xsni1_idx][xsni2_idx] += 1 * p3
+
+        #if normalize_weights:
+        #    Q *= 1./np.max([np.max(Q),np.max(h)])
+        #    h *= 1./np.max([np.max(Q),np.max(h)])
+            
         return Q,h,d
+
+    def encode_Ising(self,normalize_weights):
+        """ Function that transforms the cost model from
+            acting as x^TQx+h^Tx+d on x in {0,1}^n to 
+            s^TJs+g^Ts+c on s in {-1,1}^n
+
+        Returns:
+        --------
+            J: np.ndarray - 2D numpy array 
+            g: np.ndarray - 1D numpy array 
+            c: float
+        """
+
+        Q, h, d = self.QUBO_model
+
+        J = Q / 4.
+
+        g = np.zeros((h.shape))
+        for i in range(Q.shape[0]):
+            g -= (Q[:,i].reshape((Q.shape[0],1)) + (Q.T)[:,i].reshape((Q.shape[0],1))) / 4.
+
+        g -=  h / 2
+
+        c = np.sum(Q) / 4. + np.sum(h) / 2. + d
+
+        if normalize_weights:
+            J *= 1./np.max([np.max(J),np.max(g)])
+            g *= 1./np.max([np.max(J),np.max(g)])
+
+        return J, g, c
