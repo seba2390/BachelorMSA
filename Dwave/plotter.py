@@ -57,7 +57,7 @@ def plot_count_histogram(counts, solutions, top_number = 55):
         x_labels = [r"$|$"+state+r"$\rangle$" for state in sorted_states]
         ax.set_xticks(xs)
         ax.set_xticklabels(x_labels, rotation = 90,size=15)
-        ax.set_title(f"{len(sorted_counts)} most probable states",size=23)
+        ax.set_title(f"{len(sorted_counts)} most probable states (Red corresponds to valid MSA's)",size=23)
         bar = ax.bar(sorted_states,sorted_counts,align = "center",color=["tab:red" if i in good_indexes else "tab:blue" for i in range(len(xs))],label="Blue is invalid solutions")
 
         for idx, rect in enumerate(bar):
@@ -65,7 +65,6 @@ def plot_count_histogram(counts, solutions, top_number = 55):
             plt.text(rect.get_x() + rect.get_width() / 2.0, height, f'{sorted_counts[idx]:.3f}', ha='center', va='bottom')
 
         ax.set_ylabel("Probability",size=18)
-        ax.legend()
         fig.subplots_adjust(bottom=0.2) ## Increasing space below fig (in case of large states)
 
         plt.savefig("State histogram.png")
