@@ -34,9 +34,9 @@ Q = defaultdict(int)
 
 
 # ------- Loading MSA QUBO model -------
-my_strings   = np.array(["AG","G"])
-my_penalties = np.array([1,1,1])*3
-my_msa       = MultipleSequenceAlignment(strings = my_strings, penalties = my_penalties) 
+my_strings   = np.array(["AGT","AG","T","GT","T","A"])
+my_penalties = np.array([1,1,1])*100
+my_msa       = MultipleSequenceAlignment(strings = my_strings, penalties = my_penalties, normalize_weights=True) 
 msa_Q,h,d    = my_msa.QUBO_model
 
 
@@ -51,7 +51,7 @@ for i in range(msa_Q.shape[0]):
 
 # ------- Run our QUBO on the QPU -------
 # Set up QPU parameters
-chainstrength = 8
+chainstrength = 80
 numruns = 10
 
 # Run the QUBO on the solver from your config file
@@ -78,15 +78,15 @@ print("Using penalities:")
 print('-' * 17)
 print(f"p1,p2,p3 = {my_penalties[0],my_penalties[1],my_penalties[2]}\n")
 print("#"*8+" ANNEALING RESULTS "+"#"*8)
-print('-' * 35)
-print('{:>11s}{:>19s}'.format('State:','Energy:'))
-print('-' * 35)
+print('-' * int(len(init_state)+16))
+print(" "*int(len(init_state)/2-3)+"State:"+" "*int(len(init_state)/2-3)+" "*7+"Energy:")
+print('-' * int(len(init_state)+16))
 for sample, E in response.data(fields=['sample','energy']):
     state = "|"
     for k,v in sample.items():
         state += str(v)
     state += ">"
-    print('{:>12s}{:>16.5s}'.format(str(state),str(E)))
+    print(str(state)+" "*7+str(E))
 print('-' * 55)
 print("With lowest energy state corresponding to alignement:")
 print('-' * 55)

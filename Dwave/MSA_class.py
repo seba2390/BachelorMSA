@@ -1,5 +1,5 @@
 import numpy as np
-from itertools import permutations
+from itertools import permutations, product
 from copy import deepcopy
 
 class MultipleSequenceAlignment:
@@ -159,7 +159,38 @@ class MultipleSequenceAlignment:
 
             new_mat[new_mat == 0] = "_"
         return new_mat
-    
+
+    def get_valid_perms(self):
+        """ Function that returns all distinct permutations of initial MSA
+        whilst preserving order on each of the sequences
+        
+        Parameters:
+        -----------
+            matrix: 2d np.ndarray - any given matrix repr. of a MSA
+        
+        Returns:
+        --------
+            products: list of 2d np.ndarray - list of all valid perms
+                                            of given MSA.
+        """
+        all_sequence_perms = []
+        for sequence in self.initial_MSA:
+            sequence_perms = [list(obj) for obj in list(set(permutations(sequence)))]
+            valid_sequence_perms = []
+            gap = "_"
+            for sequence_perm in sequence_perms:
+                letter_counter      = 0
+                valid_sequence_perm = True
+                for character in sequence_perm:
+                    if character != gap:
+                        if character != sequence[letter_counter]:
+                            valid_sequence_perm = False
+                        letter_counter+=1
+                if valid_sequence_perm: valid_sequence_perms.append(sequence_perm)
+            all_sequence_perms.append(valid_sequence_perms)
+        products = product(*all_sequence_perms)
+        return [np.array(list(item)) for item in list(products)]
+
     def index_state(self , M: int , n: int , s: int , i: int , Ns_vals: np.ndarray) -> int:
         """ Function for computing the index 'j' in bitstring, corresponding to
         given combination of (s,n,i) provived known dimensions of MSA matrix and 

@@ -32,11 +32,20 @@ Q = defaultdict(int)
 
 
 # ------- Loading MSA QUBO model -------
-my_strings         = np.array(["AG","G"])
-my_penalties       = np.array([1,1,1])
+my_strings         = np.array(["AGC","G","C"])
+my_penalties       = np.array([1,1,1])*6
 my_msa             = MultipleSequenceAlignment(strings = my_strings, penalties = my_penalties) 
 msa_Q,h,d          = my_msa.QUBO_model
-valid_solutions    = [my_msa.initial_bitstring,np.array([1,0,0,1,0,1],dtype=np.float64)]
+
+good_sol1          = np.array([1,0,0,0,1,0,0,0,1,0,1,0,1,0,0])
+good_sol2          = np.array([1,0,0,0,1,0,0,0,1,0,0,1,1,0,0])
+good_sol3          = np.array([1,0,0,0,1,0,0,0,1,0,0,1,0,1,0])
+good_sol4          = np.array([1,0,0,0,1,0,0,0,1,0,0,1,0,0,1])
+good_sol5          = np.array([1,0,0,0,1,0,0,0,1,1,0,0,1,0,0])
+good_sol6          = np.array([1,0,0,0,1,0,0,0,1,1,0,0,0,1,0])
+good_sol7          = np.array([1,0,0,0,1,0,0,0,1,1,0,0,0,0,1])
+
+valid_solutions    = [my_msa.initial_bitstring,good_sol1,good_sol2,good_sol3,good_sol4,good_sol5,good_sol6,good_sol7]
 
 
 
@@ -53,7 +62,7 @@ for i in range(msa_Q.shape[0]):
 # Set up QPU parameters
 chainstrength = 8
 numruns = 10
-nr_shots = 20
+nr_shots = 3
 
 count_dict = {}
 for i in tqdm(range(nr_shots)):
