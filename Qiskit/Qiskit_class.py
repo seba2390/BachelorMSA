@@ -7,8 +7,6 @@ from qiskit import Aer
 from scipy.optimize import minimize
 from MSA_class import MultipleSequenceAlignment
 
-
-
 import matplotlib.pyplot as plt
 
 plt.rc("font", family=["Helvetica", "Arial"])
@@ -46,6 +44,25 @@ class QiskitSimulation:
                     edges.append((idx1,idx2,Q[idx1][idx2]))
         return edges
 
+    def inverse_dict_states(self, count_state_dict):
+        """ Qiskit takes the right-most qubit as the zeroth. This
+            functions takes a dictionary of {state:count} and inverses 
+            the states s.t. 0001 -> 1000 
+        
+        Paramaters:
+        -----------
+            count_state_dict: dictionary, e.g.: {state1:count1, state2:counts2,...}
+
+        Returns:
+        --------
+            reversed_state_dict: dictionary, e.g.: {reversed(state1):count1, reversed(state2):counts2,...}
+        """
+        reversed_state_dict = {}
+        for idx, key in enumerate(list(count_state_dict.keys())):
+            reversed_state_dict[key[::-1]] = list(count_state_dict.values())[idx]
+        return reversed_state_dict
+
+
     def get_Aer_backend(self, name: str):
         """Function for retrieving specified Aer backend
         Possible backends include:
@@ -66,9 +83,6 @@ class QiskitSimulation:
         """
         return Aer.get_backend(name)
     
-    def print_backend_names(self):
-        for backend in Aer.backends():
-            print(backend.name())
 
     def set_current_circuit(self, my_MSA, theta):
         """
@@ -93,9 +107,6 @@ class QiskitSimulation:
         """
         J, g, c = my_MSA.Ising_model[0], my_MSA.Ising_model[1], my_MSA.Ising_model[2]
 
-
-
-        
         # Initial_state: Hadamark gate on each qbit
         for i in range(0, nqubits):
             qc.h(i)
@@ -107,11 +118,25 @@ class QiskitSimulation:
             # Cost unitary:        
             for i, j, w_ij in edges:
                 if i!= j:
-                    qc.rzz(2 * gamma[irep] * w_ij , i , j)
+                    qc.rzz(2 * gamma[irep] * w_ij , i , j)  # Off-Diagonal in Q matrix
                 else:
-                    qc.rz(2 * gamma[irep] * w_ij, i) # Diagonal in Q matrix
+                    qc.rz(2 * gamma[irep] * w_ij, i)        # Diagonal in Q matrix
             for i, g_i in enumerate(g):
-                qc.rz(2 * gamma[irep] * g_i, i)      # Elements of h vector
+                qc.rz(2 * gamma[irep] * g_i, i)             # Elements of h vector
+            
+
+            """
+            # Cost unitary:        
+            for i in range(J.shape[0]):
+                for j in range(J.shape[1]):
+                    if i == j:
+                        if J[i][j] != 0:
+                            qc.rz(2 * gamma[irep] * J[j][i] , i)
+                            qc.rz(2 * gamma[irep] * g[i] , i)
+                    else:
+                        if J[i][j] != 0:
+                            qc.rzz(2 * gamma[irep] * J[i][j] , i , j) # Diagonal in Q matrix
+            """
 
             # Mixer unitary: X rotation on each qbit     
             for i in range(0, nqubits):
@@ -145,18 +170,12 @@ class QiskitSimulation:
         Computes expectation value based on measurement results
 
         """
-
-
-        
-       #Q, h, d    = my_MSA.QUBO_model[0], my_MSA.QUBO_model[1], my_MSA.QUBO_model[2]
         
         J, g, c    = my_MSA.Ising_model[0], my_MSA.Ising_model[1], my_MSA.Ising_model[2]
-
 
         sum_count, avg = 0, 0
         for bitstring, count in counts.items():
             state = self.string_to_arr(bitstring)
-            #score = ((state.T @ (J @ state)) + (g.T @ state) + c)[0][0]
             score = ((state.T @ (J @ state)) + (g.T @ state))[0][0]
             avg  += score * count
             sum_count += count
@@ -177,13 +196,21 @@ class QiskitSimulation:
             print("Currently no circuit is set")
 
     def print_solution(self,idx):
-        """ Function for getting the idx'th most probable solution"""
+        """ Function for getting and printing the idx'th most 
+            probable state foind in self.current counts:
+        
+        Parameters:
+        -----------
+            idx: int
+        """
+
+        count_state_dict = self.inverse_dict_states(self.current_counts)
 
         ## Getting values 
-        initial_states = np.array(list(self.current_counts.keys()))
-        initial_counts = np.array(list(self.current_counts.values()))
+        initial_states = np.array(list(count_state_dict.keys()))
+        initial_counts = np.array(list(count_state_dict.values()))
 
-        sorting_idxs   = np.flip(np.argsort(initial_counts)) # Flipping for sorting biggest,...,smallest
+        sorting_idxs   = np.flip(np.argsort(initial_counts, kind = "heapsort")) # Flipping for sorting biggest,...,smallest
         initial_states = initial_states[sorting_idxs]
         print("#"*53)
         if idx == 0: string = f"#### Most probale state according to simulation ####"
@@ -198,16 +225,30 @@ class QiskitSimulation:
 
     
     def plot_count_histogram(self, counts, solutions, top_number = 55):
+        """ Function for plotting a historgram of the states and their corresponding
+            probability.
+            
+        Parameters:
+        -----------
+            counts    : dictionary, e.g.: {state1:count1, state2:counts2,...}
+            solutions : list of solutions, e.g.: [valid_state1,valid_state2,...]
+            top_number: int - max number of most probable states displayed
         
-        ## Getting values 
+        """
+        
+        #---------- Getting values ----------#
         initial_states = np.array(list(counts.keys()))
         initial_counts = np.array(list(counts.values()))
 
-        ## Sorting
+        #---------- Sorting ----------#
         initial_counts = np.array([count/np.sum(initial_counts) for count in initial_counts])
+
+        #---------- Sorting after number of ones in states : low  -> high ----------#
         #nr_ones = [np.sum(self.string_to_arr(initial_states[i]).flatten()) for i in range(len(initial_states))]
-        #sort_idx = np.argsort(nr_ones)                  ## Sorting after number of ones in states : low  -> high
-        sort_idx = np.flip(np.argsort(initial_counts))  ## Sorting after occurrence               : high -> low
+        #sort_idx = np.argsort(nr_ones,kind="heapsort")  
+
+        #---------- Sorting after occurrence               : high -> low -----------#            
+        sort_idx = np.flip(np.argsort(initial_counts,kind="heapsort"))  
 
         sorted_states = initial_states[sort_idx]
         sorted_counts = initial_counts[sort_idx]
@@ -217,7 +258,7 @@ class QiskitSimulation:
             sorted_counts = sorted_counts[:top_number]
 
 
-        ## Setting idx for states if present in solutions
+        #---------- Setting idx for states if present in solutions -----------#
         good_indexes = []
         for solution in solutions:
             for idx, state in enumerate([self.string_to_arr(sorted_states[i]).flatten() for i in range(len(sorted_states))]):
@@ -227,14 +268,14 @@ class QiskitSimulation:
                         equal = False
                 if equal: good_indexes.append(idx)
 
-        ## Plotting
+        #---------- Plotting -----------#
         fig, ax = plt.subplots(1,1,figsize=(25,6))
 
         xs = np.arange(0,len(sorted_states))
         x_labels = [r"$|$"+state+r"$\rangle$" for state in sorted_states]
         ax.set_xticks(xs)
         ax.set_xticklabels(x_labels, rotation = 90,size=15)
-        ax.set_title(f"{len(sorted_counts)} most probable states",size=23)
+        ax.set_title(f"{len(sorted_counts)} most probable states (Red corresponds to valid MSA's)",size=23)
         bar = ax.bar(sorted_states,sorted_counts,align = "center",color=["tab:red" if i in good_indexes else "tab:blue" for i in range(len(xs))],label="Blue is invalid solutions")
 
         for idx, rect in enumerate(bar):
@@ -242,5 +283,5 @@ class QiskitSimulation:
             plt.text(rect.get_x() + rect.get_width() / 2.0, height, f'{sorted_counts[idx]:.3f}', ha='center', va='bottom')
 
         ax.set_ylabel("Probability",size=18)
-        ax.legend()
+        fig.subplots_adjust(bottom=0.2) ## Increasing space below fig (in case of large states)
         plt.show()
