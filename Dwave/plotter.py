@@ -66,4 +66,6 @@ def plot_count_histogram(counts, solutions, top_number = 55):
 
         ax.set_ylabel("Probability",size=18)
         ax.legend()
+        fig.subplots_adjust(bottom=0.2) ## Increasing space below fig (in case of large states)
+
         plt.savefig("State histogram.png")

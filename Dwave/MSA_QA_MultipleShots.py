@@ -33,21 +33,15 @@ Q = defaultdict(int)
 
 # ------- Loading MSA QUBO model -------
 my_strings         = np.array(["AGC","G","C"])
-my_penalties       = np.array([1,1,1])*6
+my_penalties       = np.array([1,1,1])*100
 my_msa             = MultipleSequenceAlignment(strings = my_strings, penalties = my_penalties) 
 msa_Q,h,d          = my_msa.QUBO_model
+valid_perms        = my_msa.get_valid_perms()
+valid_solutions    = [my_msa.matrix_2_bit_state(perm,my_msa.initial_MSA) for perm in valid_perms]
 
-good_sol1          = np.array([1,0,0,0,1,0,0,0,1,0,1,0,1,0,0])
-good_sol2          = np.array([1,0,0,0,1,0,0,0,1,0,0,1,1,0,0])
-good_sol3          = np.array([1,0,0,0,1,0,0,0,1,0,0,1,0,1,0])
-good_sol4          = np.array([1,0,0,0,1,0,0,0,1,0,0,1,0,0,1])
-good_sol5          = np.array([1,0,0,0,1,0,0,0,1,1,0,0,1,0,0])
-good_sol6          = np.array([1,0,0,0,1,0,0,0,1,1,0,0,0,1,0])
-good_sol7          = np.array([1,0,0,0,1,0,0,0,1,1,0,0,0,0,1])
-
-valid_solutions    = [my_msa.initial_bitstring,good_sol1,good_sol2,good_sol3,good_sol4,good_sol5,good_sol6,good_sol7]
-
-
+print("Valid solutions:")
+for solution in valid_solutions:
+    print(solution)
 
 # Update Q dictionary
 for i in range(msa_Q.shape[0]):
@@ -60,9 +54,9 @@ for i in range(msa_Q.shape[0]):
 
 # ------- Run our QUBO on the QPU -------
 # Set up QPU parameters
-chainstrength = 8
-numruns = 10
-nr_shots = 3
+chainstrength = 80
+numruns = 3
+nr_shots = 100
 
 count_dict = {}
 for i in tqdm(range(nr_shots)):
